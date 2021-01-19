@@ -16,23 +16,25 @@ import math
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from pandas import DatetimeIndex as dt
 from pandas_datareader import data as wb
 from scipy.stats import norm
-from datetime import datetime
+from datetime import datetime, timedelta
 #------------------------------------------------------------------------------#
 #------------------------------------------------------------------------------#
 #------------------------------------------------------------------------------#
 # Ticker and time horizon.
-stock_ticker = 'TSLA'
+stock_ticker = 'TSLA' #SPLV aswell
 start_date = '2020-01-01'
 end_date = str(datetime.now().strftime('%Y-%m-%d')) # 24hr time conversion of .now().
+end_date = '2020-12-31'
 #------------------------------------------------------------------------------#
 #------------------------------------------------------------------------------#
 #------------------------------------------------------------------------------#
 def clean_stock_data(stock_data, col):
-    weekdays = pd.date_range(start=start_date, end=end_date) # Non-trading day.
-    cleaned_data = stock_data[col].reindex(weekdays) # Adjusted close (col), etc.
-    cleaned_data = cleaned_data.fillna(method='ffill') # Filling all nan values.
+    days = pd.date_range(start=start_date, end=end_date) # Non-trading day.
+    cleaned_data = stock_data[col].reindex(days) # Adjusted close (col), etc.
+    cleaned_data = cleaned_data.dropna() # Filling all nan values.
     return cleaned_data
 #------------------------------------------------------------------------------#
 #------------------------------------------------------------------------------#
@@ -42,11 +44,6 @@ def vis_stock_data(stock_data, ticker):
     print(f'{ticker} Head: \n {stock_data.head()}')
     print(f'\n{ticker} Tail: \n {stock_data.tail()}')
     return None
-
-
-
-
-
 #------------------------------------------------------------------------------#
 #------------------------------------------------------------------------------#
 #------------------------------------------------------------------------------#
@@ -54,14 +51,7 @@ def pull_stock_data(ticker):
     stock_data = wb.DataReader(ticker, 'yahoo', start_date, end_date)
     #vis_stock_data(stock_data, ticker)
     adj_close = clean_stock_data(stock_data, 'Adj Close')
-    #plot_bare_stock(adj_close, ticker)
     return adj_close
-
-
-
-
-
-
 #------------------------------------------------------------------------------#
 #------------------------------------------------------------------------------#
 #------------------------------------------------------------------------------#
@@ -76,18 +66,13 @@ def stock_data_sample(ticker):
     twenty_PCT = math.ceil(len(total_stock_data) * 0.20)
 
     eightyPCT_stock_data = total_stock_data[:eighty_PCT]
-    twentyPCT_stock_data = total_stock_data[-twenty_PCT:]
+    twentyPCT_stock_data = total_stock_data[-twenty_PCT-1:]
 
-    dates = total_stock_data.index
-
-    '''
     plt.figure(22)
     plt.plot(total_stock_data, 'k', label='100% of Data', linewidth=12)
     plt.plot(eightyPCT_stock_data, 'r', label='In-Sample (80%)')
     plt.plot(twentyPCT_stock_data, 'b', label='Out-of-Sample (20%)')
 
-    plt.xlim(x[0], x[-1])
-    plt.ylim(10,1000)
     plt.title(f'{ticker}: Price Data - Training Splits for Monte Carlo Simulation')
     plt.xlabel('Date (Y-M-D)')
     plt.ylabel('Adjusted Close Price (AUD$)')
@@ -95,99 +80,45 @@ def stock_data_sample(ticker):
     plt.grid()
 
     plt.show()
-    '''
-    return dates, eightyPCT_stock_data, twentyPCT_stock_data, total_stock_data
 
-
-
-'''
-For the monte carlo simulation, i want to start it from 80% to 100% and then
-plot it over the 20% with say 5 MCS
-'''
-
-
-
-#------------------------------------------------------------------------------#
-#------------------------------------------------------------------------------#
-#------------------------------------------------------------------------------#
-def plot_bare_stock(stock_data, ticker):
-    plt.plot(stock_data, 'r', label=ticker)
-
-    plt.title(f'{ticker}: Price Data')
-    plt.xlabel('Date (Y-M-D)')
-    plt.ylabel('Adjusted Close Price (AUD$)')
-    plt.legend()
-    plt.grid()
-    plt.show()
-    return None
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    return eightyPCT_stock_data, twentyPCT_stock_data, total_stock_data
 #------------------------------------------------------------------------------#
 #------------------------------------------------------------------------------#
 #------------------------------------------------------------------------------#
 def plot_MCS_stock(ticker):
     data = stock_data_sample(ticker)
-    dates = data[0]
-    eightyPCT_stock_data = data[1]
-    twentyPCT_stock_data = data[2]
+    eightyPCT_stock_data = data[0]
+    twentyPCT_stock_data = data[1]
 
-    total = data[3]
+    total = data[2]
+    total = eightyPCT_stock_data
 
+    log_returns = np.log(1 + total.pct_change())
 
-    time_elapsed = len(dates)
+    drift = log_returns.mean(); # mu (expected return)
+    sigma = log_returns.std(); #voltatility, standard deviation
 
-    price_ratio = (total[-1] / total[1])
-    inverse_number_of_years = 365.0 / time_elapsed
-    cagr = price_ratio ** inverse_number_of_years - 1
+    #sigma = (log_returns.var()/ math.sqrt(math.pi))
+    T = 1.0; M = 252; dt = T/M;# derivative of time
+    I = 10; # Number of MCS Simulations
 
-    vol = total.pct_change().std()
+    shock = sigma * np.random.standard_normal((M + 1, I)); # shock
 
-    number_of_trading_days = len(dates)
-    vol = vol * math.sqrt(number_of_trading_days)
+    S_t = total.iloc[-1]; # actual stock price when t-1
 
+    F_t = S_t * np.exp(np.cumsum((drift - (0.5 * sigma ** 2) * dt)
+    + (math.sqrt(dt) * shock), axis=0))
 
+    start_MCS_date = total.index[-1]
 
-    daily_return_percentages = np.random.normal(cagr/number_of_trading_days, vol/math.sqrt(number_of_trading_days),number_of_trading_days)+1
+    F_t = pd.DataFrame(F_t, index=pd.date_range(start_MCS_date, periods=M+1))
 
-    price_series = [total[-1]]
-
-    for drp in daily_return_percentages:
-        price_series.append(price_series[-1] * drp)
-
-
-    number_of_trials = 100
-    for i in range(number_of_trials):
-        daily_return_percentages = np.random.normal(cagr/number_of_trading_days, vol/math.sqrt(number_of_trading_days),number_of_trading_days)+1
-        price_series = [total[-1]]
-
-        for drp in daily_return_percentages:
-            price_series.append(price_series[-1] * drp)
-
-        plt.plot(price_series)
-
-    
 
     plt.figure(44)
-    # plot MCS
     plt.plot(eightyPCT_stock_data, 'r', label='In-Sample (80%)')
     plt.plot(twentyPCT_stock_data, 'b', label='Out-of-Sample (20%)')
+    plt.plot(F_t)
 
-    plt.xlim(dates[0], dates[-1])
-    plt.ylim(10,1000)
     plt.title(f'{ticker}: Price Data - Training Splits for Monte Carlo Simulation')
     plt.xlabel('Date (Y-M-D)')
     plt.ylabel('Adjusted Close Price (AUD$)')
@@ -196,62 +127,34 @@ def plot_MCS_stock(ticker):
 
     plt.show()
 
+    histogram_data = []
+    for i in list(range(I)):
+        histogram_data.append(total)
+
+    plt.figure(55)
+    plt.hist(histogram_data, bins=50)
+    plt.show()
+
+    return F_t
+#------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
+def MCS_results(ticker):
+    F_t = plot_MCS_stock(ticker)
+    plt.hist(F_t)
+    plt.show()
+
+
+
+
+
     return None
 #------------------------------------------------------------------------------#
 #------------------------------------------------------------------------------#
 #------------------------------------------------------------------------------#
-
-
-
-
-
-
-
-
-
-#------------------------------------------------------------------------------#
-#------------------------------------------------------------------------------#
-#------------------------------------------------------------------------------#
-#pull_stock_data(stock_ticker)
-stock_data_sample(stock_ticker)
+#stock_data_sample(stock_ticker)
 plot_MCS_stock(stock_ticker)
-#------------------------------------------------------------------------------#
-#------------------------------------------------------------------------------#
-#------------------------------------------------------------------------------#
-#------------------------------------------------------------------------------#
-#------------------------------------------------------------------------------#
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#MCS_results(stock_ticker)
 #------------------------------------------------------------------------------#
 #------------------------------------------------------------------------------#
 #------------------------------------------------------------------------------#
