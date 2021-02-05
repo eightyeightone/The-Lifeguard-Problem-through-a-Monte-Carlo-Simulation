@@ -7,4 +7,4 @@ A Monte Carlo simulation is a predictive tool used when numerical solutions are 
 
 
 ###### *NB*: See file *The Lifeguard Problem through a Monte Carlo Simulation.pdf* for the full report.
-###### By Harry Akeroyd.
+###### By Harry Akeroyd. n9997121@QUT.edu.au
