@@ -1,11 +1,7 @@
 ## The Lifeguard Problem through a Monte Carlo Simulation
 
-
-#### Abstract
-A Monte Carlo simulation is a predictive tool used when numerical solutions are expensive to produce or to assist human intuition. This report uses these methods to solve The Lifeguard Problem. That is, where should the lifeguard enter the water to reach the drowning child fastest, as (s)he is faster on-land than in the water. Through ten simulations the results varied from the optimum (178m) by ±9m with one simulation resulting the optimum. Future work will include price path forecasting.
-
 #### Summary
-This project...
+This project was written as an introduction to Monte Carlo Simulations using a simple objective function. A simple function with only one dependent and one independent variable was used. The random samples generated from the independent varirable were uniformally distributed and represented points in which the lifeguard could enter the water. The simulations showed how these randomly generated values effected the total time to reach the drowning child and how accuracte the Monte Carlo Simulation is. Distribution of the results from the optimum (178m) was &plusmn9m.
 
 ###### *NB*: See file *The Lifeguard Problem through a Monte Carlo Simulation.pdf* for the full report.
 ###### By Harry Akeroyd. eightyeightone@outlook.com
